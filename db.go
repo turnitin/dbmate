@@ -40,7 +40,7 @@ func (db *DB) GetDriver() (Driver, error) {
 }
 
 // Up creates the database (if necessary) and runs migrations
-func (db *DB) Up() error {
+func (db *DB) Up(lockTimeoutSecs int) error {
 	drv, err := db.GetDriver()
 	if err != nil {
 		return err
@@ -57,7 +57,7 @@ func (db *DB) Up() error {
 	}
 
 	// migrate
-	return db.Migrate()
+	return db.Migrate(lockTimeoutSecs)
 }
 
 // Create creates the current database
@@ -156,7 +156,7 @@ func (db *DB) openDatabaseForMigration() (Driver, *sql.DB, error) {
 }
 
 // Migrate migrates database to the latest version
-func (db *DB) Migrate() error {
+func (db *DB) Migrate(lockTimeoutSecs int) error {
 	re := regexp.MustCompile(`^\d.*\.sql$`)
 	files, err := findMigrationFiles(db.MigrationsDir, re)
 	if err != nil {
@@ -173,46 +173,43 @@ func (db *DB) Migrate() error {
 	}
 	defer mustClose(sqlDB)
 
-	applied, err := drv.SelectMigrations(sqlDB, -1, db.Project)
-	if err != nil {
-		return err
-	}
-
-	for _, filename := range files {
-		ver := migrationVersion(filename)
-		if ok := applied[ver]; ok {
-			// migration already applied
-			continue
-		}
-
-		fmt.Printf("Applying: %s\n", filename)
-
-		migration, err := parseMigration(filepath.Join(db.MigrationsDir, filename))
+	return RunInLock(drv, sqlDB, lockTimeoutSecs, func(driver Driver, sqlDB *sql.DB) error {
+		alreadyApplied, err := driver.SelectMigrations(sqlDB, -1, db.Project)
 		if err != nil {
 			return err
 		}
 
-		// begin transaction
-		err = doTransaction(sqlDB, func(tx Transaction) error {
-			// run actual migration
-			if _, err := tx.Exec(migration["up"]); err != nil {
+		for _, filename := range files {
+			ver := migrationVersion(filename)
+			if ok := alreadyApplied[ver]; ok {
+				continue
+			}
+			fmt.Printf("Applying: %s\n", filename)
+			migration, err := parseMigration(filepath.Join(db.MigrationsDir, filename))
+			if err != nil {
 				return err
 			}
 
-			// record migration
-			if err := drv.InsertMigration(tx, ver, db.Project); err != nil {
+			// begin transaction
+			err = doTransaction(sqlDB, func(tx Transaction) error {
+				// run actual migration
+				if _, err := tx.Exec(migration["up"]); err != nil {
+					return err
+				}
+
+				// record migration
+				if err := drv.InsertMigration(tx, ver, db.Project); err != nil {
+					return err
+				}
+
+				return nil
+			})
+			if err != nil {
 				return err
 			}
-
-			return nil
-		})
-		if err != nil {
-			return err
 		}
-
-	}
-
-	return nil
+		return nil
+	})
 }
 
 func findMigrationFiles(dir string, re *regexp.Regexp) ([]string, error) {

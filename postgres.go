@@ -137,3 +137,19 @@ func (drv PostgresDriver) DeleteMigration(db Transaction, version string) error 
 
 	return err
 }
+
+var lockKey = 48372615
+
+// Lock tries to acquire an advisory lock
+func (drv PostgresDriver) Lock(db *sql.DB) error {
+	_, err := db.Exec("select pg_advisory_lock($1)", lockKey)
+	return err
+}
+
+// Unlock releases an advisory lock
+func (drv PostgresDriver) Unlock(db *sql.DB) {
+	_, err := db.Exec("select pg_advisory_unlock($1)", lockKey)
+	if err != nil {
+		panic(err)
+	}
+}

@@ -45,6 +45,11 @@ func NewApp() *cli.App {
 			Value: "default",
 			Usage: "specify a name to associate with the migration set",
 		},
+		cli.IntFlag{
+			Name:  "timeout, t",
+			Value: 30,
+			Usage: "specify the max time we'll wait to acquire a migration lock",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -61,7 +66,7 @@ func NewApp() *cli.App {
 			Name:  "up",
 			Usage: "Create database (if necessary) and migrate to the latest version",
 			Action: action(func(db *dbmate.DB, c *cli.Context) error {
-				return db.Up()
+				return db.Up(c.GlobalInt("timeout"))
 			}),
 		},
 		{
@@ -82,7 +87,7 @@ func NewApp() *cli.App {
 			Name:  "migrate",
 			Usage: "Migrate to the latest version",
 			Action: action(func(db *dbmate.DB, c *cli.Context) error {
-				return db.Migrate()
+				return db.Migrate(c.GlobalInt("timeout"))
 			}),
 		},
 		{

@@ -44,7 +44,7 @@ func testMigrateURL(t *testing.T, u *url.URL) {
 	require.Nil(t, err)
 
 	// migrate
-	err = db.Migrate()
+	err = db.Migrate(15)
 	require.Nil(t, err)
 
 	// verify results
@@ -77,7 +77,7 @@ func testUpURL(t *testing.T, u *url.URL) {
 	require.Nil(t, err)
 
 	// create and migrate
-	err = db.Up()
+	err = db.Up(30)
 	require.Nil(t, err)
 
 	// verify results
@@ -110,7 +110,7 @@ func testRollbackURL(t *testing.T, u *url.URL) {
 	require.Nil(t, err)
 	err = db.Create()
 	require.Nil(t, err)
-	err = db.Migrate()
+	err = db.Migrate(30)
 	require.Nil(t, err)
 
 	// verify migration

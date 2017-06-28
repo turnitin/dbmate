@@ -208,3 +208,24 @@ func TestPostgresDeleteMigration(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, 1, count)
 }
+
+func TestPostgresLock(t *testing.T) {
+	drv := PostgresDriver{}
+	db := prepTestPostgresDB(t)
+	defer mustClose(db)
+
+	err := drv.Lock(db)
+	require.Nil(t, err)
+	defer drv.Unlock(db)
+
+	objectID := 0
+	lockType := "lol"
+	isGranted := false
+
+	row := db.QueryRow("select objid, mode, granted from pg_locks where objid = 48372615")
+	err = row.Scan(&objectID, &lockType, &isGranted)
+	require.Nil(t, err)
+	require.Equal(t, objectID, 48372615)
+	require.Equal(t, lockType, "ExclusiveLock")
+	require.Equal(t, isGranted, true)
+}
