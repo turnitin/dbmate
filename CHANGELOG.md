@@ -1,3 +1,8 @@
+## 1.5.0
+
+* Add 'force' command to record the unapplied migrations from the filesystem in
+  the migrations table, but without actually applying them.
+
 ## 1.4.0
 
 * Enable Postgres migrations to acquire an advisory lock to ensure they will
