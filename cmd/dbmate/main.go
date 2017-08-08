@@ -91,6 +91,13 @@ func NewApp() *cli.App {
 			}),
 		},
 		{
+			Name:  "record-only",
+			Usage: "Record all unapplied migrations but do not actually apply them",
+			Action: action(func(db *dbmate.DB, c *cli.Context) error {
+				return db.RecordOnly()
+			}),
+		},
+		{
 			Name:    "rollback",
 			Aliases: []string{"down"},
 			Usage:   "Rollback the most recent migration",

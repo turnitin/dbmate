@@ -80,6 +80,51 @@ func (db *DB) Drop() error {
 	return drv.DropDatabase(db.DatabaseURL)
 }
 
+// RecordOnly will record without applying all unapplied filesystem migrations
+func (db *DB) RecordOnly() error {
+	re := regexp.MustCompile(`^\d.*\.sql$`)
+	files, err := findMigrationFiles(db.MigrationsDir, re)
+	if err != nil {
+		return err
+	}
+
+	if len(files) == 0 {
+		return fmt.Errorf("no migration files found")
+	}
+
+	drv, sqlDB, err := db.openDatabaseForMigration()
+	if err != nil {
+		return err
+	}
+	defer mustClose(sqlDB)
+
+	if err := drv.Lock(sqlDB); err != nil {
+		return err
+	}
+	defer drv.Unlock(sqlDB)
+
+	applied, err := drv.SelectMigrations(sqlDB, -1, db.Project)
+	if err != nil {
+		return err
+	}
+
+	for _, filename := range files {
+		ver := migrationVersion(filename)
+		if ok := applied[ver]; ok {
+			continue
+		}
+
+		err = doTransaction(sqlDB, func(tx Transaction) error {
+			if err := drv.InsertMigration(tx, ver, db.Project); err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+
+	return nil
+}
+
 const migrationTemplate = "-- migrate:up\n\n\n-- migrate:down\n\n"
 
 // New creates a new migration file

@@ -34,6 +34,37 @@ func testURLs(t *testing.T) []*url.URL {
 	}
 }
 
+func testRecordOnlyURL(t *testing.T, u *url.URL) {
+	db := newTestDB(t, u)
+
+	// drop and recreate database
+	err := db.Drop()
+	require.Nil(t, err)
+	err = db.Create()
+	require.Nil(t, err)
+
+	// actually do the thing!
+	err = db.RecordOnly()
+	require.Nil(t, err)
+
+	// verify results
+	sqlDB, err := GetDriverOpen(u)
+	require.Nil(t, err)
+	defer mustClose(sqlDB)
+
+	count := 0
+	err = sqlDB.QueryRow(`select count(*) from schema_migrations
+		where version = '20151129054053'`).Scan(&count)
+	require.Nil(t, err)
+	require.Equal(t, 1, count)
+}
+
+func TestRecordOnly(t *testing.T) {
+	for _, u := range testURLs(t) {
+		testRecordOnlyURL(t, u)
+	}
+}
+
 func testMigrateURL(t *testing.T, u *url.URL) {
 	db := newTestDB(t, u)
 
