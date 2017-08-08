@@ -127,3 +127,13 @@ func (drv SQLiteDriver) DeleteMigration(db Transaction, version string) error {
 
 	return err
 }
+
+// Lock locks the database so no other migrations can be run, no-op in SQLite
+func (drv SQLiteDriver) Lock(db *sql.DB) error {
+	return nil
+}
+
+// Unlock removes a database lock so other migrations can be run, no-op in SQLite
+func (drv SQLiteDriver) Unlock(db *sql.DB) {
+	// no-op
+}
