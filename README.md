@@ -35,6 +35,22 @@ tools, please see the [Alternatives](#alternatives) table.
 * Built-in support for reading environment variables from your `.env` file.
 * Easy to distribute, single self-contained binary.
 
+## How to build this project
+
+For local development you can build a docker image
+
+```
+$ git clone git@github.com:turnitin/dbmate
+$ cd dbmate
+$ make build
+$ cp dist/dbmate-darwin-amd64-nocgo /usr/local/bin/dbmate
+```
+
+Once the *dbmate* distribution is available you can run the 
+migrations for a specific project:
+```
+DATABASE_URL=postgres://somehost:someport/dbname?sslmode=disable dbmate -p project-name migrate```
+
 ## Installation
 
 **OSX**
