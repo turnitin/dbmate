@@ -46,49 +46,26 @@ $ make build
 $ cp dist/dbmate-darwin-amd64-nocgo /usr/local/bin/dbmate
 ```
 
-Once the *dbmate* distribution is available you can run the 
-migrations for a specific project:
+Once the *dbmate* distribution is available you can run migrations:
+
 ```
-DATABASE_URL=postgres://somehost:someport/dbname?sslmode=disable dbmate -p project-name migrate```
+DATABASE_URL=postgres://somehost:someport/dbname?sslmode=disable dbmate migrate
+```
+
+or alternatively run them for a specific project:
+
+```
+DATABASE_URL=postgres://somehost:someport/dbname?sslmode=disable dbmate -p myproject migrate
+```
 
 ## Installation
 
-**OSX**
+If you have docker and docker-compose installed you can build your own artisanal binaries with:
 
-Install using Homebrew:
-
-```sh
-$ brew tap amacneil/dbmate
-$ brew install dbmate
 ```
-
-**Linux**
-
-Download the binary directly:
-
-```sh
-$ sudo curl -fsSL -o /usr/local/bin/dbmate https://github.com/amacneil/dbmate/releases/download/v1.2.1/dbmate-linux-amd64
-$ sudo chmod +x /usr/local/bin/dbmate
-```
-
-**Heroku**
-
-To use dbmate on Heroku, the easiest method is to store the linux binary in
-your git repository:
-
-```sh
-$ mkdir -p bin
-$ curl -fsSL -o bin/dbmate-heroku https://github.com/amacneil/dbmate/releases/download/v1.2.1/dbmate-linux-amd64
-$ chmod +x bin/dbmate-heroku
-$ git add bin/dbmate-heroku
-$ git commit -m "Add dbmate binary"
-$ git push heroku master
-```
-
-You can now run dbmate on heroku:
-
-```sh
-$ heroku run bin/dbmate-heroku up
+$ make build
+$ ls dist
+dbmate-darwin-amd64-nocgo dbmate-linux-386          dbmate-linux-amd64        dbmate-linux-amd64-nocgo
 ```
 
 **Other**
@@ -285,6 +262,94 @@ $ dbmate -e TEST_DATABASE_URL up
 Creating: myapp_test
 Applying: 20151127184807_create_users_table.sql
 ```
+
+## Additional Features
+
+This fork of dbmate has a few additional features that we use at Turnitin, particularly around:
+
+* using a single database by multiple microservices,
+* running multiple microservice instances at the same time.
+
+Hopefully they're useful for you.
+
+### Tag migrations with a project
+
+By default `dbmate` records migrations in a table `schema_migrations` with a
+single field to hold the migration version. However, if you have multiple
+microservices using the same database it's very useful to track which of them a
+migration came from.
+
+So there's an additional field `project` in the table. By default it's
+`default`, but you can modify with a `-p` argument when applying migrations:
+
+```
+$ export DATABASE_URL=postgres://somehost:someport/dbname?sslmode=disable
+
+$ dbmate migrate               # project "default"
+
+$ dbmate -p myproject migrate  # project "myproject"
+```
+
+This is supported for *all databases*.
+
+### Prevent multiple migrations from running simultaneously
+
+NOTE: this feature is only supported for *Postgres*. There are hooks if you'd
+like to implement it for MySQL and/or SQLite.
+
+If you run multiple instances of a service you don't control which one runs
+first, so having deterministic schema migrations can be tricky. You can solve
+this with a separate service to run the migration, or by ensuring that only a
+single instance of the service is started first.
+
+But these are weird special cases, and we'd rather have migrations run the same
+way everywhere -- they're executed when the service starts up, every single
+time.
+
+And it turns out databases have a mechanism for this with [advisory
+locks](https://www.postgresql.org/docs/10/static/explicit-locking.html#ADVISORY-LOCKS).
+These are application-defined locks that don't interfere with any database
+operation.
+
+So if you're using Postgres we try to grab a lock with a predefined key, and if
+another process has the lock we'll block until that process unlocks it. This
+prevents *reads and writes* from being executed by `dbmate` effectively ensures
+that only one migration can be executed at a time.
+
+It will show up like this -- say we're starting up three instances of a service
+simultaneously -- A, B, and C:
+
+```
+         A                           B                           C
+
+   | Requests lock               Requests lock               Requests lock
+   |                                 |                           |
+T  | Acquires lock                   |                           |
+   |                                 |                           |
+   | Scans local + DB migrations     |                           |
+I  |                                 |                           | 
+   | Finds migration to apply        |                           |
+M  |                                 |                           |  
+   | Applies migration               |                           |
+E  |                                 |                           | 
+   | Releases lock               Acquires lock                   |
+   |    DONE                                                     |
+   |                             Scans local + DB migrations     |
+   |                                                             |
+   |                             Finds no migration to apply     |
+   |                                                             |
+   |                             Releases lock                Acquires lock
+   |                                DONE
+   |                                                          Scans local + DB migrations
+   |
+   |                                                          Finds no migration to apply
+   |
+   |                                                          Releases lock
+   |                                                             DONE
+```
+
+The ordering, of course, is random -- it just looks nicer in a diagram if it
+cascades like this.
 
 ## FAQ
 
