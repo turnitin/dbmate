@@ -1,3 +1,8 @@
+## 1.6.0
+
+* Add explicit lock timeout (currently 30 seconds) - https://github.com/turnitin/dbmate/pull/9
+* Update mysql driver to 1.5.1 - https://github.com/turnitin/dbmate/pull/10
+
 ## 1.5.0
 
 * Add 'force' command to record the unapplied migrations from the filesystem in

@@ -8,13 +8,25 @@ import (
 	"github.com/lib/pq"
 )
 
+// LockTimeout is the Postgres time specification for how long we should wait for a lock before dying
+var LockTimeout = "30s"
+
 // PostgresDriver provides top level database functions
 type PostgresDriver struct {
 }
 
-// Open creates a new database connection
+// Open creates a new database connection, also setting a lock timeout to 30 seconds for the whole session.
 func (drv PostgresDriver) Open(u *url.URL) (*sql.DB, error) {
-	return sql.Open("postgres", u.String())
+	db, err := sql.Open("postgres", u.String())
+	if err != nil {
+		return nil, err
+	}
+	// set local doesn't like bound parameters
+	_, err = db.Exec("set local lock_timeout = '" + LockTimeout + "'")
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
 }
 
 func (drv PostgresDriver) openPostgresDB(u *url.URL) (*sql.DB, error) {
@@ -140,7 +152,7 @@ func (drv PostgresDriver) DeleteMigration(db Transaction, version string) error 
 
 var lockKey = 48372615
 
-// Lock tries to acquire an advisory lock
+// Lock tries to acquire an advisory lock and waits for the configured LockTimeout seconds before giving up
 func (drv PostgresDriver) Lock(db *sql.DB) error {
 	_, err := db.Exec("select pg_advisory_lock($1)", lockKey)
 	return err
