@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/turnitin/dbmate",
-	"GoVersion": "go1.6",
-	"GodepVersion": "v74",
+	"GoVersion": "go1.12",
+	"GodepVersion": "v80",
 	"Deps": [
 		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
@@ -9,8 +9,8 @@
 		},
 		{
 			"ImportPath": "github.com/go-sql-driver/mysql",
-			"Comment": "v1.2-198-g0b58b37",
-			"Rev": "0b58b37b664c21f3010e836f1b931e1d0b0b0685"
+			"Comment": "v1.4.0-28-gd0a5481",
+			"Rev": "d0a548181995c293eb09c61ef80099ba1cdbe8f5"
 		},
 		{
 			"ImportPath": "github.com/joho/godotenv",
