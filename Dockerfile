@@ -1,4 +1,4 @@
-FROM golang:1.11
+FROM golang:1.12
 
 # i386 cross compilation
 RUN dpkg --add-architecture i386 && \
